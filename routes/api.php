@@ -16,3 +16,5 @@ Route::get('/series', [SeriesController::class, 'index']  );
 Route::get('/sets/{setId}/cards', [CardController::class, 'cardsFromSet']);
 
 
+//searching for specific card
+Route::get('/search', [CardController::class, 'search']);

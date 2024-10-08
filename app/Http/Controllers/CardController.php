@@ -18,4 +18,25 @@ class CardController extends Controller
         $cards = Set::find($setId)->cards;
         return response()->json($cards);
     }
+
+
+    //searching for a card
+    public function search(Request $request)
+    {
+       
+        $query = $request->input('query');
+        
+        if (!$query) {
+            return response()->json(['error' => 'Search query is required'], 400);
+        }
+
+        $results = Card::where('name', 'LIKE', '%' . $query . '%')->get();
+
+        if ($results->isEmpty()) {
+            return response()->json(['message' => 'No card found'], 404);
+        }
+
+        return response()->json($results);
+    }
+
 }
