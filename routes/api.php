@@ -3,8 +3,6 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CardController;
 use App\Http\Controllers\SeriesController;
-use App\Http\Controllers\RegistrationController;
-use App\Http\Controllers\LoginController;
 use App\Http\Controllers\API\AuthController;
 
 ini_set('memory_limit', '-1');
@@ -17,8 +15,8 @@ Route::post('register', [App\Http\Controllers\API\AuthController::class, 'regist
 
 //login
 Route::post('login', [AuthController::class, 'login'])->name('login.post');
-//logout
-Route::post('/logout', [LoginController::class, 'logout']);
+// //logout
+// Route::post('/logout', [LoginController::class, 'logout']);
 
 //series and their sets in one :)
 Route::get('/series', [SeriesController::class, 'index']  );
