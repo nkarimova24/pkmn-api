@@ -15,49 +15,67 @@ class CardController extends Controller
     }
 
     //cards from set
-    public function cardsFromSet($setId){
+    public function cardsFromSet($setId, Request $request){
+
+   
         $cards = Set::with('cards.set')->find($setId)->cards;
+       
+
+        
     return response()->json($cards);
     }
 
 
-    //searching for a card
+    //searching for a card, even by id
     public function search(Request $request)
     {
-       
         $query = $request->input('query');
-
-        $results = Card::where('name', 'LIKE', '%' . $query . '%')->get();
-
+    
+        //check if includes both card_id and printed_total -> identifier of card 
+        if (preg_match('/(\d+)\/(\d+)/', $query, $matches)) {
+            $cardIdPart = $matches[1]; 
+            $printedTotal = $matches[2]; 
+    
+            
+            $results = Card::whereRaw('CAST(SUBSTRING_INDEX(card_id, "-", -1) AS UNSIGNED) = ?', [$cardIdPart])
+                ->whereHas('set', function ($query) use ($printedTotal) {
+                    $query->where('printed_total', $printedTotal);
+                })
+                ->get();
+        } else {
+            $results = Card::where('name', 'LIKE', '%' . $query . '%')->get();
+        }
+    
         if ($results->isEmpty()) {
             return response()->json(['message' => 'No card found'], 404);
         }
-
+    
         return response()->json($results);
     }
-
-
+    
 
     //filter by set
     public function filterType(Request $request)
     {
         $type = $request->input('type');
-    
+        
         if (!$type) {
             return response()->json(['error' => 'Type is required'], 400);
         }
+        
+        // Get all cards
+        $query = Card::query();
     
+        // Filter by set if set_id is present
         if ($request->has('set_id')) {
             $setId = $request->input('set_id');
-            $cards = Card::where('set_id', $setId)
-                ->where('types', 'LIKE', '%' . $type . '%')
-                ->get();
-        } else {
-            $cards = Card::where('types', 'LIKE', '%' . $type . '%')->get();
+            $query->where('set_id', $setId);
         }
     
-     
-    
+        // Filter by type
+        $cards = $query->where('types', 'LIKE', '%' . $type . '%')->get();
+        
+        // Return filtered cards
         return response()->json($cards);
     }
     
