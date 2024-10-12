@@ -33,4 +33,9 @@ class Card extends Model
         return $this->belongsTo(Set::class);
     }
 
+    public function collections()
+{
+    return $this->hasMany(Collection::class);
+}
+
 }
