@@ -14,12 +14,12 @@ return new class extends Migration
         Schema::create('collections', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
-            $table->string('card_id'); 
+            $table->unsignedBigInteger('card_id'); 
             $table->integer('count')->default(1); 
             $table->timestamps();
         
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('card_id')->references('card_id')->on('cards')->onDelete('cascade');
+            $table->foreign('card_id')->references('id')->on('cards')->onDelete('cascade');
         });
         
     }
