@@ -63,16 +63,15 @@ class CardController extends Controller
             return response()->json(['error' => 'Type is required'], 400);
         }
         
-        // Get all cards
         $query = Card::query();
     
-        // Filter by set if set_id is present
+        //filter by set if set_id is present
         if ($request->has('set_id')) {
             $setId = $request->input('set_id');
             $query->where('set_id', $setId);
         }
     
-        // Filter by type
+        //filter by type
         $cards = $query->where('types', 'LIKE', '%' . $type . '%')->get();
         
         // Return filtered cards
