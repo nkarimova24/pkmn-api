@@ -8,27 +8,25 @@ use Illuminate\Support\Facades\DB;
 
 class CollectionController extends Controller
 {
-    // Add card to user's collection
+    //add card to users collection
     public function addCardToCollection(Request $request)
     {
-        // Validate the request
+    
         $validated = $request->validate([
             'email' => 'required|email|exists:users,email',
             'card_id' => 'required|exists:cards,card_id',
             'count' => 'required|integer|min:1',
         ]);
     
-        // Fetch user ID based on the email provided
+        //fetch user id based on email
         $user = DB::table('users')->where('email', $validated['email'])->first();
     
-        // Log user information
-
     
         if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
     
-        // Create or update the card in the collection
+        //create or update
         $collection = Collection::updateOrCreate(
             [
                 'user_id' => $user->id,
@@ -36,40 +34,36 @@ class CollectionController extends Controller
             ],
             ['count' => DB::raw("count + {$validated['count']}")]
         );
-    
-        // Log the collection result
-      
+
     
         return response()->json($collection, 201);
     }
     
     
-    // Fetch user's collection by email instead of user ID
+    //fetch user collection by email
     public function getUserCollection(Request $request)
     {
         $validated = $request->validate([
-            'email' => 'required|email|exists:users,email', // Change to email instead of user_id
+            'email' => 'required|email|exists:users,email', 
         ]);
 
-        // Fetch user ID based on the email provided
         $user = DB::table('users')->where('email', $validated['email'])->first();
 
         if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
 
-        $collection = Collection::where('user_id', $user->id)->with('card')->get(); // Assuming a relationship exists
+        $collection = Collection::where('user_id', $user->id)->with('card')->get(); 
         return response()->json($collection);
     }
 
-    // Remove card from user's collection using email
+    //remove card from user collection 
     public function removeCardFromCollection(Request $request, $cardId)
     {
         $validated = $request->validate([
-            'email' => 'required|email|exists:users,email', // Change to email instead of user_id
+            'email' => 'required|email|exists:users,email',
         ]);
 
-        // Fetch user ID based on the email provided
         $user = DB::table('users')->where('email', $validated['email'])->first();
 
         if (!$user) {
