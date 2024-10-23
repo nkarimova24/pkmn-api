@@ -14,7 +14,7 @@ class CollectionController extends Controller
         // Validate the request
         $validated = $request->validate([
             'email' => 'required|email|exists:users,email',
-            'card_id' => 'required|exists:cards,card_id',
+            'card_id' => 'required|exists:cards,id',
             'count' => 'required|integer|min:1',
         ]);
     
