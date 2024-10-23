@@ -32,7 +32,7 @@ class CollectionController extends Controller
                 'user_id' => $user->id,
                 'card_id' => $validated['card_id'],
             ],
-            ['count' => DB::raw("count + {$validated['count']}")]
+            ['count' => DB::raw("{$validated['count']}")]
         );
 
     
