@@ -39,4 +39,4 @@ Route::get('/cards/set/{setId}/sorted', [CardController::class, 'orderEvolutionB
 
 Route::post('/collections/add', [CollectionController::class, 'addCardToCollection'])->name('addCardToCollection');
 Route::get('/collections', [CollectionController::class, 'getUserCollection']); // Accepts email in the request
-Route::delete('/collections/remove/{cardId}', [CollectionController::class, 'removeCardFromCollection']); // Accepts email in the request body
+Route::delete('/collections/remove', [CollectionController::class, 'removeCardFromCollection']);
