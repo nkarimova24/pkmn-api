@@ -12,12 +12,14 @@ class CardPrice extends Model
     // Define the fillable properties
     protected $fillable = [
         'id', 
-        'tcgplayer'
+        'tcgplayer', 
+        'cardmarket'
     ];
 
     
     protected $casts = [
         'tcgplayer' => 'array',
+        'cardmarket' => 'array'
     ];
     public function cards()
     {
