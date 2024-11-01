@@ -15,22 +15,19 @@ class CardController extends Controller
         return view('cards.index', compact('cards'));
     }
 
-
     //cards from set
     public function cardsFromSet($setId, Request $request)
-    {
-        //cards from sets with price data  - tcgplayer & cardmarket
-        $cards = DB::table('cards as c')
-            ->join('cardprices as cp', 'c.cardprice_id', '=', 'cp.id')
-            ->select('c.*', 'cp.tcgplayer', 'cp.cardmarket', 'cp.id as cardPriceId')
-            ->where('c.set_id', $setId)
-            ->get();
 
-        if ($cards->isEmpty()) {
-            return response()->json(['error' => 'No cards found for this set'], 404);
-        }
-
-        $cards = $cards->map(function ($card) {
+            {
+                //set with related cards and their card prices
+                $set = Set::with('cards.cardPrice')->find($setId);
+            
+                if (!$set || $set->cards->isEmpty()) {
+                    return response()->json(['error' => 'No cards found for this set'], 404);
+                }
+            
+                //include price data
+                $cards = $set->cards->map(function ($card) {
 
             // Decode the price data tcgplayer & cardmarket
             $decodedTcgplayerPrices = json_decode($card->tcgplayer, true);
