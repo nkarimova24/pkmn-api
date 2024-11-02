@@ -23,6 +23,6 @@ class CardPrice extends Model
     ];
     public function cards()
     {
-        return $this->hasMany(Card::class, 'cardprice_id', 'id');
+        return $this->belongsTo(Card::class, 'cardprice_id', 'id');
     }
 }

@@ -9,6 +9,7 @@ class Card extends Model
 {
     use HasFactory;
 
+    protected $table  = 'cards';
     protected $fillable = [
         'card_id', 'name', 'supertype', 'subtypes', 'hp', 'types', 'evolves_from',
         'rules','attacks','weakness','retreat_cost','converted_retreat_cost','rarity','legalities',
@@ -35,7 +36,7 @@ class Card extends Model
 
     public function collections()
 {
-    return $this->hasMany(Collection::class);
+    return $this->hasMany(Collection::class, 'card_id', 'id');
 }
 
 public function cardPrice()
