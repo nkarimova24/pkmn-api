@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 use App\Models\User;
@@ -12,35 +13,34 @@ use App\Models\Card;
 
 class CollectionController extends Controller
 {
-
-    //fetch user collection by email
+    // Fetch user collection by auth token
     public function getUserCollection(Request $request)
     {
-        $validated = $request->validate([
-            'email' => 'required|email|exists:users,email', 
-        ]);
-
-        $user = DB::table('users')->where('email', $validated['email'])->first();
+        $user = Auth::user();
 
         if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
 
-        $collection = Collection::where('user_id', $user->id)->with('card')->get(); 
+        $collection = Collection::where('user_id', $user->id)->with('card')->get();
         return response()->json($collection);
     }
 
-    //add card to users collection
+    // Add card to user's collection
     public function addCardToCollection(Request $request)
     {
         $validated = $request->validate([
-                'email' => 'required|email|exists:users,email',
+              
         'card_id' => 'required|exists:cards,card_id',
         'variant' => 'required|in:normal,holofoil,reverseHolofoil',
         'count' => 'required|integer|min:1',
         ]);
-    
-        $user = User::where('email', $validated['email'])->firstOrFail();
+     $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
 
         $card = DB::table('cards')
         ->where('card_id', $validated['card_id'])
@@ -73,6 +73,7 @@ class CollectionController extends Controller
     
 
             $collection = Collection::firstOrNew([
+
                 'user_id' => $user->id,
                 'card_id' => $validated['card_id'], // Use card_id directly
             ]);
@@ -95,13 +96,19 @@ class CollectionController extends Controller
 public function removeCardFromCollection(Request $request)
 {
     $validated = $request->validate([
-        'email' => 'required|email|exists:users,email',
+       
         'card_id' => 'required|exists:cards,card_id',
         'variant' => 'required|in:normal,holofoil,reverseHolofoil',
         'count' => 'required|integer|min:1',
     ]);
+  
+  
+     $user = Auth::user();
 
-    $user = User::where('email', $validated['email'])->firstOrFail(); // Use firstOrFail for simpler error handling
+            if (!$user) {
+                return response()->json(['message' => 'User not found.'], 404);
+            }
+  
     $card = DB::table('cards')
     ->where('card_id', $validated['card_id'])
     ->first();
@@ -151,5 +158,6 @@ public function removeCardFromCollection(Request $request)
         ], 200);
   
 }
+
 
 }

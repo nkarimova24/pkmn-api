@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth; 
 use App\Models\User; 
 use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
 
 class AuthController extends Controller 
 {
@@ -52,18 +53,21 @@ class AuthController extends Controller
             'email' => 'required|email',
             'password' => 'required',
         ]);
-    
+
         if ($validator->fails()) {
             return response()->json(['error' => $validator->errors()], 422);
         }
-    
+
         if (Auth::attempt($request->only('email', 'password'))) {
             $user = Auth::user();
+            $token = $user->createToken('auth_token', ['*'], Carbon::now()->addWeeks(1))->plainTextToken;
+
             return response()->json([
                 'status' => 'success',
                 'data' => [
                     'name' => $user->name,
                     'email' => $user->email,
+                    'token' => $token,
                 ],
             ], 200);
         } else {
