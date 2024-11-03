@@ -138,7 +138,7 @@ public function removeCardFromCollection(Request $request)
             ]);
         
     $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverseHolofoil' ? 'reverse_holo_count' : ($validated['variant']=='normal' ?  'normal_count' : ''));
-    $collection->$variantColumn -= $validated['count'];
+    $collection->$variantColumn -= 1;
 
     // Save the updated collection
     $collection->save();
