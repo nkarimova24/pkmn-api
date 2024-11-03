@@ -81,7 +81,7 @@ class CollectionController extends Controller
                 'card_id' => $validated['card_id'], // Use card_id directly
             ]);
 
-                $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverse_holo' ? 'reverse_holo_count' : 'normal_count');
+                $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverseHolofoil' ? 'reverse_holo_count' : 'normal_count');
                 $collection->$variantColumn += $validated['count'];
 
                 $collection->save();
