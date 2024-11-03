@@ -4,16 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use Illuminate\Support\Facades\DB;
 class Card extends Model
 {
     use HasFactory;
 
+    protected $table  = 'cards';
     protected $fillable = [
         'card_id', 'name', 'supertype', 'subtypes', 'hp', 'types', 'evolves_from',
         'rules','attacks','weakness','retreat_cost','converted_retreat_cost','rarity','legalities',
-        'images', 'set_id'
-
+        'images', 'set_id',
+        'cardprice_id',
 
     ];
 
@@ -35,7 +36,11 @@ class Card extends Model
 
     public function collections()
 {
-    return $this->hasMany(Collection::class);
+    return $this->hasMany(Collection::class, 'card_id', 'id');
 }
 
+public function cardPrice()
+{
+    return $this->belongsTo(CardPrice::class, 'cardprice_id', 'id');
+}
 }

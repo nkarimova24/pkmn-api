@@ -15,8 +15,12 @@ class Collection extends Model
      */
     protected $fillable = [
         'user_id',
-        'card_id',
         'count',
+        'normal_count',
+        'holo_count',
+        'reverse_holo_count',
+        'card_id',
+
     ];
 
     /**
@@ -32,6 +36,6 @@ class Collection extends Model
      */
     public function card()
     {
-        return $this->belongsTo(Card::class, 'card_id', 'id');
+        return $this->belongsTo(Card::class, 'card_id', 'card_id');
     }
 }
