@@ -34,10 +34,10 @@ class CollectionController extends Controller
     public function addCardToCollection(Request $request)
     {
         $validated = $request->validate([
-            'email' => 'required|email|exists:users,email',
-            'card_id' => 'required|exists:cards,card_id',
-            'count' => 'required|integer|min:1',
-            'variant' => 'required|in:normal,holofoil,reverseHolofoil',
+                'email' => 'required|email|exists:users,email',
+        'card_id' => 'required|exists:cards,card_id',
+        'variant' => 'required|in:normal,holofoil,reverseHolofoil',
+        'count' => 'required|integer|min:1',
         ]);
     
         $user = User::where('email', $validated['email'])->firstOrFail();
@@ -70,11 +70,7 @@ class CollectionController extends Controller
         ];
 
 
-        $variationKey = $validated['variant'] === 'reverseHolofoil' ? 'reverseHolofoil' : $validated['variant'];
-
-        if (!isset($priceData['tcgplayer'][$variationKey])) { 
-            return response()->json(['message' => 'Variation prices not found for ' . $validated['variant']], 404);
-        }
+    
 
             $collection = Collection::firstOrNew([
                 'user_id' => $user->id,
@@ -95,54 +91,65 @@ class CollectionController extends Controller
     
     
     //remove card from user collection 
-    public function removeCardFromCollection(Request $request)
-    {
-        $validated = $request->validate([
-            'email' => 'required|email|exists:users,email',
-            'card_id' => 'required|exists:cards,card_id',
-            'count' => 'required|integer|min:1',
-        ]);
-    
-        $user = DB::table('users')->where('email', $validated['email'])->first();
-    
-        if (!$user) {
-            return response()->json(['message' => 'User not found.'], 404);
-        }
-    
-        //collection entry
-        $collection = Collection::where([
-            'user_id' => $user->id,
-            'card_id' => $validated['card_id'],
-        ])->first();
-    
-        if (!$collection) {
-            return response()->json(['message' => 'Card not found in collection.'], 404);
-        }
-    
-       //new count
-        $newCount = $collection->count - $validated['count'];
-    
-        if ($newCount <= 0) {
-            $collection->delete();
-            return response()->json([
-                'message' => 'Card removed from collection completely.',
-                'count' => 0
-            ], 200);
-        } else {
-            //update with reduced / updated count
-            $collection = Collection::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'card_id' => $validated['card_id'],
-                ],
-                ['count' => $newCount]
-            );
-    
-            return response()->json([
-                'message' => 'Card count updated in collection.',
-                'count' => $newCount
-            ], 200);
-        }
+   //remove card from user collection 
+public function removeCardFromCollection(Request $request)
+{
+    $validated = $request->validate([
+        'email' => 'required|email|exists:users,email',
+        'card_id' => 'required|exists:cards,card_id',
+        'variant' => 'required|in:normal,holofoil,reverseHolofoil',
+        'count' => 'required|integer|min:1',
+    ]);
+
+    $user = User::where('email', $validated['email'])->firstOrFail(); // Use firstOrFail for simpler error handling
+    $card = DB::table('cards')
+    ->where('card_id', $validated['card_id'])
+    ->first();
+
+    if (!$card) {
+        return response()->json(['message' => 'Card not found.'], 404);
     }
+
+    $cardPrice = DB::table('cardprices')
+        ->where('id', $card->cardprice_id) 
+        ->first();
+
+    if (!$cardPrice) {
+        return response()->json(['message' => 'Card price data not found.'], 404);
+    }
+
+
+    $collection = Collection::where([
+        'user_id' => $user->id,
+        'card_id' => $validated['card_id'],
+    ])->first();
+
+    if (!$collection) {
+        return response()->json(['message' => 'Card not found in collection.'], 404);
+    }
+
+
+   
+        //update with reduced / updated count
+        $collection = Collection::updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'card_id' => $validated['card_id'],
+            ]);
+        
+    $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverseHolofoil' ? 'reverse_holo_count' : ($validated['variant']=='normal' ?  'normal_count' : ''));
+    $collection->$variantColumn -= $validated['count'];
+
+    // Save the updated collection
+    $collection->save();
+    
+
+
+        return response()->json([
+            'message' => 'Card count updated in collection.',
+           
+        ], 200);
+  
+}
 
 }
