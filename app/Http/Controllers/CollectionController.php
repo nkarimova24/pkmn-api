@@ -7,6 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+use App\Models\User;
+use App\Models\CardPrice;
+use App\Models\Card;
+
 class CollectionController extends Controller
 {
     // Fetch user collection by auth token
@@ -26,75 +30,134 @@ class CollectionController extends Controller
     public function addCardToCollection(Request $request)
     {
         $validated = $request->validate([
-            'card_id' => 'required|exists:cards,id',
-            'count' => 'required|integer|min:1',
+              
+        'card_id' => 'required|exists:cards,card_id',
+        'variant' => 'required|in:normal,holofoil,reverseHolofoil',
+        'count' => 'required|integer|min:1',
         ]);
-
-        $user = Auth::user();
+     $user = Auth::user();
 
         if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
 
-        // Create or update
+
+        $card = DB::table('cards')
+        ->where('card_id', $validated['card_id'])
+        ->first();
+
+        if (!$card) {
+            return response()->json(['message' => 'Card not found.'], 404);
+        }
+
+        $cardPrice = DB::table('cardprices')
+            ->where('id', $card->cardprice_id) 
+            ->first();
+
+        if (!$cardPrice) {
+            return response()->json(['message' => 'Card price data not found.'], 404);
+        }
+
+
+        $decodedTcgplayerPrices = json_decode($cardPrice->tcgplayer, true);
+        // $decodedCardmarketPrices = json_decode($cardPrice->cardmarket, true);  <--  commented out for now, doesnt let user store a reverseholofoil
+        //we'll see if needed in future 
+
+        
+        $priceData = [
+            'tcgplayer' => $decodedTcgplayerPrices['prices'] ?? [],
+            // 'cardmarket' => $decodedCardmarketPrices['prices'] ?? [],
+        ];
+
+
+    
+
+            $collection = Collection::firstOrNew([
+
+                'user_id' => $user->id,
+                'card_id' => $validated['card_id'], // Use card_id directly
+            ]);
+
+                // $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverseHolofoil' ? 'reverse_holo_count' : ($validated['variant']=='normal' ?  'normal_count' : ''));
+                // $collection->$variantColumn += $validated['count'];
+                $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverseHolofoil' ? 'reverse_holo_count' : ($validated['variant']=='normal' ?  'normal_count' : ''));
+                $collection->$variantColumn += 1;
+                $collection->save();
+
+                    $collection->price_data = $priceData;
+
+    return response()->json($collection, 201);
+    }
+        
+    
+    
+    //remove card from user collection 
+   //remove card from user collection 
+public function removeCardFromCollection(Request $request)
+{
+    $validated = $request->validate([
+       
+        'card_id' => 'required|exists:cards,card_id',
+        'variant' => 'required|in:normal,holofoil,reverseHolofoil',
+        'count' => 'required|integer|min:1',
+    ]);
+  
+  
+     $user = Auth::user();
+
+            if (!$user) {
+                return response()->json(['message' => 'User not found.'], 404);
+            }
+  
+    $card = DB::table('cards')
+    ->where('card_id', $validated['card_id'])
+    ->first();
+
+    if (!$card) {
+        return response()->json(['message' => 'Card not found.'], 404);
+    }
+
+    $cardPrice = DB::table('cardprices')
+        ->where('id', $card->cardprice_id) 
+        ->first();
+
+    if (!$cardPrice) {
+        return response()->json(['message' => 'Card price data not found.'], 404);
+    }
+
+
+    $collection = Collection::where([
+        'user_id' => $user->id,
+        'card_id' => $validated['card_id'],
+    ])->first();
+
+    if (!$collection) {
+        return response()->json(['message' => 'Card not found in collection.'], 404);
+    }
+
+
+   
+        //update with reduced / updated count
         $collection = Collection::updateOrCreate(
             [
                 'user_id' => $user->id,
                 'card_id' => $validated['card_id'],
-            ],
-            ['count' => DB::raw("{$validated['count']}")]
-        );
+            ]);
+        
+    $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverseHolofoil' ? 'reverse_holo_count' : ($validated['variant']=='normal' ?  'normal_count' : ''));
+    $collection->$variantColumn -= 1;
 
-        return response()->json($collection, 201);
-    }
+    // Save the updated collection
+    $collection->save();
+    
 
-    // Remove card from user's collection
-    public function removeCardFromCollection(Request $request)
-    {
-        $validated = $request->validate([
-            'card_id' => 'required|exists:cards,id',
-            'count' => 'required|integer|min:1',
-        ]);
 
-        $user = Auth::user();
+        return response()->json([
+            'message' => 'Card count updated in collection.',
+           
+        ], 200);
+  
+}
 
-        if (!$user) {
-            return response()->json(['message' => 'User not found.'], 404);
-        }
 
-        // Collection entry
-        $collection = Collection::where([
-            'user_id' => $user->id,
-            'card_id' => $validated['card_id'],
-        ])->first();
-
-        if (!$collection) {
-            return response()->json(['message' => 'Card not found in collection.'], 404);
-        }
-
-        // New count
-        $newCount = $collection->count - $validated['count'];
-
-        if ($newCount <= 0) {
-            $collection->delete();
-            return response()->json([
-                'message' => 'Card removed from collection completely.',
-                'count' => 0
-            ], 200);
-        } else {
-            // Update with reduced / updated count
-            $collection = Collection::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'card_id' => $validated['card_id'],
-                ],
-                ['count' => $newCount]
-            );
-
-            return response()->json([
-                'message' => 'Card count updated in collection.',
-                'count' => $newCount
-            ], 200);
-        }
-    }
 }
