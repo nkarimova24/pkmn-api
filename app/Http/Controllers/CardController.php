@@ -87,12 +87,11 @@ class CardController extends Controller
     {
         $query = $request->input('query');
     
-        //check if includes both card_id and printed_total -> identifier of card 
+        // Check if includes both card_id and printed_total -> identifier of card 
         if (preg_match('/(\d+)\/(\d+)/', $query, $matches)) {
             $cardIdPart = $matches[1]; 
             $printedTotal = $matches[2]; 
     
-            
             $results = Card::whereRaw('CAST(SUBSTRING_INDEX(card_id, "-", -1) AS UNSIGNED) = ?', [$cardIdPart])
                 ->whereHas('set', function ($query) use ($printedTotal) {
                     $query->where('printed_total', $printedTotal);
@@ -105,6 +104,58 @@ class CardController extends Controller
         if ($results->isEmpty()) {
             return response()->json(['message' => 'No card found'], 404);
         }
+    
+        // Fetch price data for the found cards
+        $cardPrices = DB::table('cardprices')
+            ->whereIn('id', $results->pluck('cardprice_id'))
+            ->select('id', 'tcgplayer', 'cardmarket') 
+            ->get()
+            ->keyBy('id');
+    
+        // Merge price data with card data
+        $results = $results->map(function ($card) use ($cardPrices) {
+            if (isset($cardPrices[$card->cardprice_id])) {
+                $priceData = $cardPrices[$card->cardprice_id];
+    
+                // Decoding price data since it's stored in array
+                $decodedTcgplayerPrices = json_decode($priceData->tcgplayer, true);
+                $decodedCardmarketPrices = json_decode($priceData->cardmarket, true);
+    
+                $card->price_data = [
+                    'id' => $card->cardprice_id,
+                    'tcgplayer' => [
+                        'url' => $decodedTcgplayerPrices['url'] ?? null,
+                        'updatedAt' => $decodedTcgplayerPrices['updatedAt'] ?? null,
+                        'normal' => $decodedTcgplayerPrices['prices']['normal'] ?? null,
+                        'reverseHolofoil' => $decodedTcgplayerPrices['prices']['reverseHolofoil'] ?? null,
+                        'holofoil' => $decodedTcgplayerPrices['prices']['holofoil'] ?? null,
+                    ],
+                    'cardmarket' => [
+                        'url' => $decodedCardmarketPrices['url'] ?? null,
+                        'updatedAt' => $decodedCardmarketPrices['updatedAt'] ?? null,
+                        'prices' => [
+                            'averageSellPrice' => $decodedCardmarketPrices['prices']['averageSellPrice'] ?? null,
+                            'lowPrice' => $decodedCardmarketPrices['prices']['lowPrice'] ?? null,
+                            'trendPrice' => $decodedCardmarketPrices['prices']['trendPrice'] ?? null,
+                            'germanProLow' => $decodedCardmarketPrices['prices']['germanProLow'] ?? null,
+                            'suggestedPrice' => $decodedCardmarketPrices['prices']['suggestedPrice'] ?? null,
+                            'reverseHoloSell' => $decodedCardmarketPrices['prices']['reverseHoloSell'] ?? null,
+                            'reverseHoloLow' => $decodedCardmarketPrices['prices']['reverseHoloLow'] ?? null,
+                            'reverseHoloTrend' => $decodedCardmarketPrices['prices']['reverseHoloTrend'] ?? null,
+                            'lowPriceExPlus' => $decodedCardmarketPrices['prices']['lowPriceExPlus'] ?? null,
+                            'avg1' => $decodedCardmarketPrices['prices']['avg1'] ?? null,
+                            'avg7' => $decodedCardmarketPrices['prices']['avg7'] ?? null,
+                            'avg30' => $decodedCardmarketPrices['prices']['avg30'] ?? null,
+                            'reverseHoloAvg1' => $decodedCardmarketPrices['prices']['reverseHoloAvg1'] ?? null,
+                            'reverseHoloAvg7' => $decodedCardmarketPrices['prices']['reverseHoloAvg7'] ?? null,
+                            'reverseHoloAvg30' => $decodedCardmarketPrices['prices']['reverseHoloAvg30'] ?? null,
+                        ],
+                    ],
+                ];
+            }
+    
+            return $card;
+        });
     
         return response()->json($results);
     }
