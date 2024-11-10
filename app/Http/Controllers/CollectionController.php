@@ -13,20 +13,81 @@ use App\Models\Card;
 
 class CollectionController extends Controller
 {
-    // Fetch user collection by auth token
     public function getUserCollection(Request $request)
     {
         $user = Auth::user();
 
         if (!$user) {
-            return response()->json(['message' => 'User not found.'], 404);
+            return response()->json(['message' => 'User  not found.'], 404);
         }
-
-        $collection = Collection::where('user_id', $user->id)->with('card')->get();
+    
+    
+     $collection = Collection::where('user_id', $user->id)
+    ->with(['card.set']) 
+    ->get();
+      
+        $cards = $collection->pluck('card')->filter();
+        $cardPrices = DB::table('cardprices')
+            ->whereIn('id', $cards->pluck('cardprice_id'))
+            ->select('id', 'tcgplayer', 'cardmarket') 
+            ->get()
+            ->keyBy('id');
+    
+       //merge cards with according price data 
+        $cards = $cards->map(function ($card) use ($cardPrices) {
+            if (isset($cardPrices[$card->cardprice_id])) {
+                $priceData = $cardPrices[$card->cardprice_id];
+                
+                $decodedTcgplayerPrices = json_decode($priceData->tcgplayer, true);
+                $decodedCardmarketPrices = json_decode($priceData->cardmarket, true);
+    
+                //merging into cardobject 
+                $card->price_data = [
+                    'id' => $card->cardprice_id,
+                    'tcgplayer' => [
+                        'url' => $decodedTcgplayerPrices['url'] ?? null,
+                        'updatedAt' => $decodedTcgplayerPrices['updatedAt'] ?? null,
+                        'normal' => $decodedTcgplayerPrices['prices']['normal'] ?? null,
+                        'reverseHolofoil' => $decodedTcgplayerPrices['prices']['reverseHolofoil'] ?? null,
+                        'holofoil' => $decodedTcgplayerPrices['prices']['holofoil'] ?? null,
+                    ],
+                    'cardmarket' => [
+                        'url' => $decodedCardmarketPrices['url'] ?? null,
+                        'updatedAt' => $decodedCardmarketPrices['updatedAt'] ?? null,
+                        'prices' => [
+                            'averageSellPrice' => $decodedCardmarketPrices['prices']['averageSellPrice'] ?? null,
+                            'lowPrice' => $decodedCardmarketPrices['prices']['lowPrice'] ?? null,
+                            'trendPrice' => $decodedCardmarketPrices['prices']['trendPrice'] ?? null,
+                            'germanProLow' => $decodedCardmarketPrices['prices']['germanProLow'] ?? null,
+                            'suggestedPrice' => $decodedCardmarketPrices['prices']['suggestedPrice'] ?? null,
+                            'reverseHoloSell' => $decodedCardmarketPrices['prices']['reverseHoloSell'] ?? null,
+                            'reverseHoloLow' => $decodedCardmarketPrices['prices']['reverseHoloLow'] ?? null,
+                            'reverseHoloTrend' => $decodedCardmarketPrices['prices']['reverseHoloTrend'] ?? null,
+                            'lowPriceExPlus' => $decodedCardmarketPrices['prices']['lowPriceExPlus'] ?? null,
+                            'avg1' => $decodedCardmarketPrices['prices']['avg1'] ?? null,
+                            'avg7' => $decodedCardmarketPrices['prices']['avg7'] ?? null,
+                            'avg30' => $decodedCardmarketPrices['prices']['avg30'] ?? null,
+                            'reverseHoloAvg1' => $decodedCardmarketPrices['prices']['reverseHoloAvg1'] ?? null,
+                            'reverseHoloAvg7' => $decodedCardmarketPrices['prices']['reverseHoloAvg7'] ?? null,
+                            'reverseHoloAvg30' => $decodedCardmarketPrices['prices']['reverseHoloAvg30'] ?? null,
+                        ],
+                    ],
+                ];
+            }
+    
+            return $card;
+        });
+    
+        
+        $collection->transform(function ($item) use ($cards) {
+            $item->card = $cards->firstWhere('card_id', $item->card_id); // Assuming 'card_id' is the key to match
+            return $item;
+        });
+    
         return response()->json($collection);
     }
-
-    // Add card to user's collection
+  
+    //add card to user collection
     public function addCardToCollection(Request $request)
     {
         $validated = $request->validate([
@@ -75,7 +136,7 @@ class CollectionController extends Controller
             $collection = Collection::firstOrNew([
 
                 'user_id' => $user->id,
-                'card_id' => $validated['card_id'], // Use card_id directly
+                'card_id' => $validated['card_id'], 
             ]);
 
                 // $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverseHolofoil' ? 'reverse_holo_count' : ($validated['variant']=='normal' ?  'normal_count' : ''));
@@ -90,74 +151,60 @@ class CollectionController extends Controller
     }
         
     
-    
-    //remove card from user collection 
    //remove card from user collection 
-public function removeCardFromCollection(Request $request)
-{
-    $validated = $request->validate([
-       
-        'card_id' => 'required|exists:cards,card_id',
-        'variant' => 'required|in:normal,holofoil,reverseHolofoil',
-        'count' => 'required|integer|min:1',
-    ]);
-  
-  
-     $user = Auth::user();
+    public function removeCardFromCollection(Request $request)
+    {
+        $validated = $request->validate([
+        
+            'card_id' => 'required|exists:cards,card_id',
+            'variant' => 'required|in:normal,holofoil,reverseHolofoil',
+            'count' => 'required|integer|min:1',
+        ]);
+    
+    
+        $user = Auth::user();
 
-            if (!$user) {
-                return response()->json(['message' => 'User not found.'], 404);
-            }
-  
-    $card = DB::table('cards')
-    ->where('card_id', $validated['card_id'])
-    ->first();
-
-    if (!$card) {
-        return response()->json(['message' => 'Card not found.'], 404);
-    }
-
-    $cardPrice = DB::table('cardprices')
-        ->where('id', $card->cardprice_id) 
+                if (!$user) {
+                    return response()->json(['message' => 'User not found.'], 404);
+                }
+    
+        $card = DB::table('cards')
+        ->where('card_id', $validated['card_id'])
         ->first();
 
-    if (!$cardPrice) {
-        return response()->json(['message' => 'Card price data not found.'], 404);
-    }
+        if (!$card) {
+            return response()->json(['message' => 'Card not found.'], 404);
+        }
 
+        $cardPrice = DB::table('cardprices')
+            ->where('id', $card->cardprice_id) 
+            ->first();
 
-    $collection = Collection::where([
-        'user_id' => $user->id,
-        'card_id' => $validated['card_id'],
-    ])->first();
+        if (!$cardPrice) {
+            return response()->json(['message' => 'Card price data not found.'], 404);
+        }
 
-    if (!$collection) {
-        return response()->json(['message' => 'Card not found in collection.'], 404);
-    }
+        //collection entry
+        $collection = Collection::where([
+            'user_id' => $user->id,
+            'card_id' => $validated['card_id'],
+        ])->first();
+            
+        $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverseHolofoil' ? 'reverse_holo_count' : 'normal_count');
 
-
-   
-        //update with reduced / updated count
-        $collection = Collection::updateOrCreate(
-            [
-                'user_id' => $user->id,
-                'card_id' => $validated['card_id'],
-            ]);
-        
-    $variantColumn = $validated['variant'] === 'holofoil' ? 'holo_count' : ($validated['variant'] === 'reverseHolofoil' ? 'reverse_holo_count' : ($validated['variant']=='normal' ?  'normal_count' : ''));
-    $collection->$variantColumn -= 1;
-
-    // Save the updated collection
-    $collection->save();
+        //decrease for speicicr variant 
+        $collection->$variantColumn -= 1;
     
+      //checks if all variant counts are zero
+      //if so, delete the collection entry
+        if ($collection->normal_count <= 0 && $collection->holo_count <= 0 && $collection->reverse_holo_count <= 0) {
+            $collection->delete();
+            return response()->json(['message' => 'Card removed from collection.'], 200);
 
-
-        return response()->json([
-            'message' => 'Card count updated in collection.',
-           
-        ], 200);
-  
-}
-
-
+        } else {
+            $collection->save();
+            return response()->json(['message' => 'Card count updated in collection.'], 200);
+        }
+        
+    }
 }

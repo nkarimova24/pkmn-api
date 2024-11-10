@@ -5,7 +5,7 @@ use Illuminate\Console\Command;
 use App\Models\Card;
 use App\Models\Set;
 use Illuminate\Support\Facades\File;
-
+//importing all cards
 class ImportCards extends Command
 {
     
