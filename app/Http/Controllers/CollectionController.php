@@ -7,9 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-use App\Models\User;
-use App\Models\CardPrice;
-use App\Models\Card;
+// use App\Models\User;
+// use App\Models\CardPrice;
+// use App\Models\Card;
 
 class CollectionController extends Controller
 {
@@ -32,7 +32,9 @@ class CollectionController extends Controller
             ->select('id', 'tcgplayer', 'cardmarket') 
             ->get()
             ->keyBy('id');
-    
+
+            $totalValue = 0;
+
        //merge cards with according price data 
         $cards = $cards->map(function ($card) use ($cardPrices) {
             if (isset($cardPrices[$card->cardprice_id])) {
@@ -79,13 +81,34 @@ class CollectionController extends Controller
         });
     
         
-        $collection->transform(function ($item) use ($cards) {
-            $item->card = $cards->firstWhere('card_id', $item->card_id); // Assuming 'card_id' is the key to match
-            return $item;
-        });
+      
+    $collection->transform(function ($item) use ($cards, &$totalValue) {
+        $item->card = $cards->firstWhere('card_id', $item->card_id);
+        
+        if ($item->card && isset($item->card->price_data)) {
+            $priceData = $item->card->price_data;
+            
+           //value for each variant
+            $normalValue = ($item->normal_count * ($priceData['tcgplayer']['normal']['market'] ?? 0));
+            $holoValue = ($item->holo_count * ($priceData['tcgplayer']['holofoil']['market'] ?? 0));
+            $reverseHoloValue = ($item->reverse_holo_count * ($priceData['tcgplayer']['reverseHolofoil']['market'] ?? 0));
+            
+            $itemTotalValue = $normalValue + $holoValue + $reverseHoloValue;
+            
+            $item->total_value = $itemTotalValue;
+            $totalValue += $itemTotalValue;
+        }
+        
+        return $item;
+    });
     
-        return response()->json($collection);
-    }
+    $result = [
+       $collection,
+        'total_collection_value' => $totalValue
+    ];
+
+    return response()->json($result);
+}
   
     //add card to user collection
     public function addCardToCollection(Request $request)
