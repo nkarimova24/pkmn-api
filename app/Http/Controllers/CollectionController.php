@@ -7,12 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+use App\Traits\CardPriceMergeTrait;
 // use App\Models\User;
 // use App\Models\CardPrice;
 // use App\Models\Card;
 
 class CollectionController extends Controller
 {
+    
     public function getUserCollection(Request $request)
     {
         $user = Auth::user();
@@ -23,6 +25,7 @@ class CollectionController extends Controller
     
     
      $collection = Collection::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
     ->with(['card.set']) 
     ->get();
       
@@ -119,12 +122,12 @@ class CollectionController extends Controller
         'variant' => 'required|in:normal,holofoil,reverseHolofoil',
         'count' => 'required|integer|min:1',
         ]);
-     $user = Auth::user();
+
+         $user = Auth::user();
 
         if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
-
 
         $card = DB::table('cards')
         ->where('card_id', $validated['card_id'])
@@ -142,19 +145,14 @@ class CollectionController extends Controller
             return response()->json(['message' => 'Card price data not found.'], 404);
         }
 
-
         $decodedTcgplayerPrices = json_decode($cardPrice->tcgplayer, true);
         // $decodedCardmarketPrices = json_decode($cardPrice->cardmarket, true);  <--  commented out for now, doesnt let user store a reverseholofoil
         //we'll see if needed in future 
-
         
         $priceData = [
             'tcgplayer' => $decodedTcgplayerPrices['prices'] ?? [],
             // 'cardmarket' => $decodedCardmarketPrices['prices'] ?? [],
         ];
-
-
-    
 
             $collection = Collection::firstOrNew([
 
@@ -230,4 +228,21 @@ class CollectionController extends Controller
         }
         
     }
+    
+    //function to sort most recent added cards on top
+    public function sortCollection()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+
+            }
+
+        $collection = Collection::where('user_id', $user->id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return response()->json($collection);
+        }
+
 }
