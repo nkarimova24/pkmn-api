@@ -5,21 +5,19 @@ use App\Models\Card;
 use App\Models\Set;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use App\Models\CardPrice;
-use Illuminate\Support\facades\DB;
-use App\Traits\CardPriceMergeTrait;
+use App\Traits\CardPriceMergetrait;
 
 class CardController extends Controller
 {
-    use CardPriceMergeTrait;
+    use CardPriceMergetrait;
 
-    //all cards -> not being used
+    // all cards -> not being used
     public function index() {
         $cards = Card::all();
         return view('cards.index', compact('cards'));
     }
 
-    //cards from set
+    // cards from set
     public function cardsFromSet($setId, Request $request)
     {
         $cards = Set::with('cards.set')
@@ -43,7 +41,8 @@ class CardController extends Controller
     return response()->json($cards);
     }
 
-    //searching for a card //TO DO: fix showing card with number
+    // searching for a card 
+    //TO DO: fix showing card with number
     public function search(Request $request)
     {
         $query = $request->input('query');
@@ -78,7 +77,7 @@ class CardController extends Controller
     }
     
 
-    //filter by set
+    // filter by set
     public function filterType(Request $request)
     {
         $type = $request->input('type');
@@ -98,10 +97,10 @@ class CardController extends Controller
         //filter by type
         $cards = $query->where('types', 'LIKE', '%' . $type . '%')->get();
         
-        // Return filtered cards
         return response()->json($cards);
     }
-    
+   
+    // ordering by evolution
     public function orderEvolutionBySets($setId) {
        
         //fetch cards from current
@@ -160,7 +159,6 @@ class CardController extends Controller
                 return $this->getEvolutionOrder($a) - $this->getEvolutionOrder($b);
             });
     
-            // Add the sorted chain to the final result
             foreach ($chain as $card) {
                 $sortedEvo[] = $card;
             }

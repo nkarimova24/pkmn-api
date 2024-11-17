@@ -1,9 +1,13 @@
-<?php // app/Traits/CardPriceMergeTrait.php
+<?php 
 
 namespace App\Traits;
 use Illuminate\Support\facades\DB;
-trait CardPriceMergeTrait
-{   protected function getCardPrices(array $cardIds)   // Method to merge price data for a single card
+trait CardPriceMergetrait
+
+// merge pricedata for single card
+
+{  
+    protected function getCardPrices(array $cardIds)  
     {
         $cardPrices = DB::table('cardprices')
             ->whereIn('id', $cardIds)
@@ -11,6 +15,7 @@ trait CardPriceMergeTrait
             ->get()
             ->keyBy('id');
 
+        //decoding pricedata since stored in array
         return $cardPrices->map(function ($priceData) {
             $decodedTcgplayerPrices = json_decode($priceData->tcgplayer, true);
             $decodedCardmarketPrices = json_decode($priceData->cardmarket, true);
@@ -44,14 +49,15 @@ trait CardPriceMergeTrait
                         'reverseHoloAvg7' => $decodedCardmarketPrices['prices']['reverseHoloAvg7'] ?? null,
                         'reverseHoloAvg30' => $decodedCardmarketPrices['prices']['reverseHoloAvg30'] ?? null,
                     ],
-                    ],
-                    ];
-                    });
-                    }
+                ],
+        
+            ];
+         });
+     }
                     
 
 
-    // Helper functions to organize price data extraction.
+    // price data extraction - not used
     private function extractPriceData($decodedTcgplayerPrices)
     {
         return [
@@ -63,7 +69,7 @@ trait CardPriceMergeTrait
         ];
     }
 
-    // Similar structure for extractCardmarketData()
+    //structure 
     private function extractCardmarketData($decodedCardmarketPrices) {
       return [
           'url' => $decodedCardmarketPrices['url'] ?? null,

@@ -1,19 +1,17 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use App\Models\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-use App\Traits\CardPriceMergeTrait;
-// use App\Models\User;
-// use App\Models\CardPrice;
-// use App\Models\Card;
+use App\Traits\CardPriceMergetrait;
 
 class CollectionController extends Controller
 {
+    use CardPriceMergetrait;
+
     
     public function getUserCollection(Request $request)
     {
@@ -39,49 +37,15 @@ class CollectionController extends Controller
             $totalValue = 0;
 
        //merge cards with according price data 
-        $cards = $cards->map(function ($card) use ($cardPrices) {
-            if (isset($cardPrices[$card->cardprice_id])) {
-                $priceData = $cardPrices[$card->cardprice_id];
-                
-                $decodedTcgplayerPrices = json_decode($priceData->tcgplayer, true);
-                $decodedCardmarketPrices = json_decode($priceData->cardmarket, true);
-    
-                //merging into cardobject 
-                $card->price_data = [
-                    'id' => $card->cardprice_id,
-                    'tcgplayer' => [
-                        'url' => $decodedTcgplayerPrices['url'] ?? null,
-                        'updatedAt' => $decodedTcgplayerPrices['updatedAt'] ?? null,
-                        'normal' => $decodedTcgplayerPrices['prices']['normal'] ?? null,
-                        'reverseHolofoil' => $decodedTcgplayerPrices['prices']['reverseHolofoil'] ?? null,
-                        'holofoil' => $decodedTcgplayerPrices['prices']['holofoil'] ?? null,
-                    ],
-                    'cardmarket' => [
-                        'url' => $decodedCardmarketPrices['url'] ?? null,
-                        'updatedAt' => $decodedCardmarketPrices['updatedAt'] ?? null,
-                        'prices' => [
-                            'averageSellPrice' => $decodedCardmarketPrices['prices']['averageSellPrice'] ?? null,
-                            'lowPrice' => $decodedCardmarketPrices['prices']['lowPrice'] ?? null,
-                            'trendPrice' => $decodedCardmarketPrices['prices']['trendPrice'] ?? null,
-                            'germanProLow' => $decodedCardmarketPrices['prices']['germanProLow'] ?? null,
-                            'suggestedPrice' => $decodedCardmarketPrices['prices']['suggestedPrice'] ?? null,
-                            'reverseHoloSell' => $decodedCardmarketPrices['prices']['reverseHoloSell'] ?? null,
-                            'reverseHoloLow' => $decodedCardmarketPrices['prices']['reverseHoloLow'] ?? null,
-                            'reverseHoloTrend' => $decodedCardmarketPrices['prices']['reverseHoloTrend'] ?? null,
-                            'lowPriceExPlus' => $decodedCardmarketPrices['prices']['lowPriceExPlus'] ?? null,
-                            'avg1' => $decodedCardmarketPrices['prices']['avg1'] ?? null,
-                            'avg7' => $decodedCardmarketPrices['prices']['avg7'] ?? null,
-                            'avg30' => $decodedCardmarketPrices['prices']['avg30'] ?? null,
-                            'reverseHoloAvg1' => $decodedCardmarketPrices['prices']['reverseHoloAvg1'] ?? null,
-                            'reverseHoloAvg7' => $decodedCardmarketPrices['prices']['reverseHoloAvg7'] ?? null,
-                            'reverseHoloAvg30' => $decodedCardmarketPrices['prices']['reverseHoloAvg30'] ?? null,
-                        ],
-                    ],
-                ];
-            }
-    
-            return $card;
-        });
+       $cardPrices = $this->getCardPrices($cards->pluck('cardprice_id')->toArray());
+
+       $cards = $cards->map(function ($card) use ($cardPrices) {
+           if (isset($cardPrices[$card->cardprice_id])) {
+               $card->price_data = $cardPrices[$card->cardprice_id];
+           }
+   
+           return $card;
+       });
     
         
       
