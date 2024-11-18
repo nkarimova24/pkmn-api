@@ -8,27 +8,31 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     *
+     * @return void
      */
-    public function up(): void
+    public function up()
     {
         Schema::create('collections', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('user_id');
-            $table->unsignedBigInteger('card_id'); 
-            $table->integer('count')->default(1); 
-            $table->timestamps();
-        
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('card_id')->references('card_id')->on('cards')->onDelete('cascade');
+            $table->id(); // Auto-incrementing primary key (bigint unsigned)
+            $table->foreignId('user_id')->constrained('pkmn.users')->onDelete('cascade'); // Foreign key to the 'users' table
+            $table->integer('normal_count')->default(0); // Column for normal count
+            $table->integer('holo_count')->default(0); // Column for holo count
+            $table->integer('reverse_holo_count')->default(0); // Column for reverse holo count
+            $table->integer('count')->default(1); // Column for general count
+            $table->timestamps(); // Created at & Updated at timestamps
+            $table->string('card_id')->nullable(); // Column for card_id
+            $table->foreign('card_id')->references('card_id')->on('pkmn.cards')->onDelete('cascade'); // Foreign key to the 'cards' table
         });
-        
     }
 
     /**
      * Reverse the migrations.
+     *
+     * @return void
      */
-    public function down(): void
+    public function down()
     {
-        Schema::dropIfExists('collections');
+        Schema::dropIfExists('pkmn_collections');
     }
 };
