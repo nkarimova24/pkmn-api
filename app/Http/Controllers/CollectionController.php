@@ -1,18 +1,18 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use App\Models\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-use App\Models\User;
-use App\Models\CardPrice;
-use App\Models\Card;
+use App\Traits\CardPriceMergetrait;
 
 class CollectionController extends Controller
 {
+    use CardPriceMergetrait;
+
+    
     public function getUserCollection(Request $request)
     {
         $user = Auth::user();
@@ -23,6 +23,7 @@ class CollectionController extends Controller
     
     
      $collection = Collection::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
     ->with(['card.set']) 
     ->get();
       
@@ -32,60 +33,49 @@ class CollectionController extends Controller
             ->select('id', 'tcgplayer', 'cardmarket') 
             ->get()
             ->keyBy('id');
-    
+
+            $totalValue = 0;
+
        //merge cards with according price data 
-        $cards = $cards->map(function ($card) use ($cardPrices) {
-            if (isset($cardPrices[$card->cardprice_id])) {
-                $priceData = $cardPrices[$card->cardprice_id];
-                
-                $decodedTcgplayerPrices = json_decode($priceData->tcgplayer, true);
-                $decodedCardmarketPrices = json_decode($priceData->cardmarket, true);
-    
-                //merging into cardobject 
-                $card->price_data = [
-                    'id' => $card->cardprice_id,
-                    'tcgplayer' => [
-                        'url' => $decodedTcgplayerPrices['url'] ?? null,
-                        'updatedAt' => $decodedTcgplayerPrices['updatedAt'] ?? null,
-                        'normal' => $decodedTcgplayerPrices['prices']['normal'] ?? null,
-                        'reverseHolofoil' => $decodedTcgplayerPrices['prices']['reverseHolofoil'] ?? null,
-                        'holofoil' => $decodedTcgplayerPrices['prices']['holofoil'] ?? null,
-                    ],
-                    'cardmarket' => [
-                        'url' => $decodedCardmarketPrices['url'] ?? null,
-                        'updatedAt' => $decodedCardmarketPrices['updatedAt'] ?? null,
-                        'prices' => [
-                            'averageSellPrice' => $decodedCardmarketPrices['prices']['averageSellPrice'] ?? null,
-                            'lowPrice' => $decodedCardmarketPrices['prices']['lowPrice'] ?? null,
-                            'trendPrice' => $decodedCardmarketPrices['prices']['trendPrice'] ?? null,
-                            'germanProLow' => $decodedCardmarketPrices['prices']['germanProLow'] ?? null,
-                            'suggestedPrice' => $decodedCardmarketPrices['prices']['suggestedPrice'] ?? null,
-                            'reverseHoloSell' => $decodedCardmarketPrices['prices']['reverseHoloSell'] ?? null,
-                            'reverseHoloLow' => $decodedCardmarketPrices['prices']['reverseHoloLow'] ?? null,
-                            'reverseHoloTrend' => $decodedCardmarketPrices['prices']['reverseHoloTrend'] ?? null,
-                            'lowPriceExPlus' => $decodedCardmarketPrices['prices']['lowPriceExPlus'] ?? null,
-                            'avg1' => $decodedCardmarketPrices['prices']['avg1'] ?? null,
-                            'avg7' => $decodedCardmarketPrices['prices']['avg7'] ?? null,
-                            'avg30' => $decodedCardmarketPrices['prices']['avg30'] ?? null,
-                            'reverseHoloAvg1' => $decodedCardmarketPrices['prices']['reverseHoloAvg1'] ?? null,
-                            'reverseHoloAvg7' => $decodedCardmarketPrices['prices']['reverseHoloAvg7'] ?? null,
-                            'reverseHoloAvg30' => $decodedCardmarketPrices['prices']['reverseHoloAvg30'] ?? null,
-                        ],
-                    ],
-                ];
-            }
-    
-            return $card;
-        });
+       $cardPrices = $this->getCardPrices($cards->pluck('cardprice_id')->toArray());
+
+       $cards = $cards->map(function ($card) use ($cardPrices) {
+           if (isset($cardPrices[$card->cardprice_id])) {
+               $card->price_data = $cardPrices[$card->cardprice_id];
+           }
+   
+           return $card;
+       });
     
         
-        $collection->transform(function ($item) use ($cards) {
-            $item->card = $cards->firstWhere('card_id', $item->card_id); // Assuming 'card_id' is the key to match
-            return $item;
-        });
+      
+    $collection->transform(function ($item) use ($cards, &$totalValue) {
+        $item->card = $cards->firstWhere('card_id', $item->card_id);
+        
+        if ($item->card && isset($item->card->price_data)) {
+            $priceData = $item->card->price_data;
+            
+           //value for each variant
+            $normalValue = ($item->normal_count * ($priceData['tcgplayer']['normal']['market'] ?? 0));
+            $holoValue = ($item->holo_count * ($priceData['tcgplayer']['holofoil']['market'] ?? 0));
+            $reverseHoloValue = ($item->reverse_holo_count * ($priceData['tcgplayer']['reverseHolofoil']['market'] ?? 0));
+            
+            $itemTotalValue = $normalValue + $holoValue + $reverseHoloValue;
+            
+            $item->total_value = $itemTotalValue;
+            $totalValue += $itemTotalValue;
+        }
+        
+        return $item;
+    });
     
-        return response()->json($collection);
-    }
+    $result = [
+       $collection,
+        'total_collection_value' => $totalValue
+    ];
+
+    return response()->json($result);
+}
   
     //add card to user collection
     public function addCardToCollection(Request $request)
@@ -96,12 +86,12 @@ class CollectionController extends Controller
         'variant' => 'required|in:normal,holofoil,reverseHolofoil',
         'count' => 'required|integer|min:1',
         ]);
-     $user = Auth::user();
+
+         $user = Auth::user();
 
         if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
-
 
         $card = DB::table('cards')
         ->where('card_id', $validated['card_id'])
@@ -119,19 +109,14 @@ class CollectionController extends Controller
             return response()->json(['message' => 'Card price data not found.'], 404);
         }
 
-
         $decodedTcgplayerPrices = json_decode($cardPrice->tcgplayer, true);
         // $decodedCardmarketPrices = json_decode($cardPrice->cardmarket, true);  <--  commented out for now, doesnt let user store a reverseholofoil
         //we'll see if needed in future 
-
         
         $priceData = [
             'tcgplayer' => $decodedTcgplayerPrices['prices'] ?? [],
             // 'cardmarket' => $decodedCardmarketPrices['prices'] ?? [],
         ];
-
-
-    
 
             $collection = Collection::firstOrNew([
 
@@ -207,4 +192,21 @@ class CollectionController extends Controller
         }
         
     }
+    
+    //function to sort most recent added cards on top
+    public function sortCollection()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+
+            }
+
+        $collection = Collection::where('user_id', $user->id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return response()->json($collection);
+        }
+
 }
