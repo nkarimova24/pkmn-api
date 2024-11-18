@@ -14,9 +14,9 @@ class AddVariationCountsToCollectionsTable extends Migration
     public function up()
     {
         Schema::table('collections', function (Blueprint $table) {
-            $table->integer('normal_count')->default(0)->after('card_id');
-            $table->integer('holo_count')->default(0)->after('normal_count');
-            $table->integer('reverse_holo_count')->default(0)->after('holo_count');
+            // $table->integer('normal_count')->default(0)->after('card_id');
+            // $table->integer('holo_count')->default(0)->after('normal_count');
+            // $table->integer('reverse_holo_count')->default(0)->after('holo_count');
         });
     }
 
