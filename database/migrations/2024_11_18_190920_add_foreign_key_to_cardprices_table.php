@@ -7,22 +7,21 @@ use Illuminate\Support\Facades\Schema;
 class AddForeignKeyToCardPricesTable extends Migration
 {
     public function up()
-    {
-        Schema::table('cardprices', function (Blueprint $table) {
-            // Assuming cardprices has a 'card_id' column, not 'id',
-            // that should reference the 'card_id' in the 'cards' table.
-            $table->foreign('card_id')  // <-- Corrected column name
-                  ->references('card_id')
-                  ->on('cards')
-                  ->onDelete('cascade');
-        });
-    }
+{
+    Schema::table('cardprices', function (Blueprint $table) {
+        $table->foreign('card_id') // Ensure this column exists
+              ->references('id') // Make sure `cards` table has `id`, not `card_id`
+              ->on('cards')
+              ->onDelete('cascade');
+    });
+}
 
-    public function down()
-    {
-        Schema::table('cardprices', function (Blueprint $table) {
-            // Drop the foreign key constraint.  Best practice is to name the constraint.
-            $table->dropForeign(['card_id']); // <-- Corrected column name
-        });
-    }
+public function down()
+{
+    Schema::table('cardprices', function (Blueprint $table) {
+        $table->dropForeign(['card_id']);
+        $table->dropColumn('card_id'); // Drop the column in rollback
+    });
+}
+
 }
