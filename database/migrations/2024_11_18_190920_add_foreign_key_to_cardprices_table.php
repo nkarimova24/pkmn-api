@@ -11,7 +11,7 @@ class AddForeignKeyToCardPricesTable extends Migration
         Schema::table('cardprices', function (Blueprint $table) {
             // Assuming cardprices has a 'card_id' column, not 'id',
             // that should reference the 'card_id' in the 'cards' table.
-            $table->foreign('id')  // <-- Corrected column name
+            $table->foreign('card_id')  // <-- Corrected column name
                   ->references('card_id')
                   ->on('cards')
                   ->onDelete('cascade');
