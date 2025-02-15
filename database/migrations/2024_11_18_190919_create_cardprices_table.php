@@ -14,13 +14,13 @@ class CreateCardpricesTable extends Migration
     public function up()
     {
         Schema::create('cardprices', function (Blueprint $table) {
-            $table->id(); // Auto-increment primary key
-            $table->unsignedBigInteger('card_id'); // Add card_id column
+            $table->id();
+            $table->unsignedBigInteger('card_id'); 
             $table->json('tcgplayer')->nullable();
             $table->json('cardmarket')->nullable();
-            $table->timestamps(); // created_at & updated_at
+            $table->timestamps(); 
     
-            $table->unique('id'); // Ensure uniqueness constraint on `id`
+            $table->unique('id'); 
         });
     }
     
