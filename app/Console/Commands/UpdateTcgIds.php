@@ -1,5 +1,5 @@
 <?php
-
+//unknown what this does
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;

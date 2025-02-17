@@ -41,6 +41,6 @@ class Card extends Model
 
 public function cardPrice()
 {
-    return $this->belongsTo(CardPrice::class, 'cardprice_id', 'id');
+    return $this->belongsTo(CardPrice::class, 'cardprice_id', );
 }
 }
