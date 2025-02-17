@@ -1,7 +1,7 @@
 <?php 
 
 namespace App\Traits;
-use Illuminate\Support\facades\DB;
+use Illuminate\Support\Facades\DB;
 trait CardPriceMergetrait
 
 // merge pricedata for single card
