@@ -5,94 +5,52 @@ use App\Models\Card;
 use App\Models\Set;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use App\Models\CardPrice;
-use Illuminate\Support\facades\DB;
+use App\Traits\CardPriceMergetrait;
+
 class CardController extends Controller
 {
-    //all cards
+    use CardPriceMergetrait;
+
+    // all cards -> not being used
     public function index() {
         $cards = Card::all();
         return view('cards.index', compact('cards'));
     }
 
-
-    //cards from set
+    // cards from set
     public function cardsFromSet($setId, Request $request)
     {
-        //cards from table cards
         $cards = Set::with('cards.set')
-            ->findOrFail($setId)
-            ->cards;
-    
-        if ($cards->isEmpty()) {
-            return response()->json(['error' => 'No cards found for this set'], 404);
-        }
-    
-        //pricedata from cardprices
-        $cardPrices = DB::table('cardprices')
-            ->whereIn('id', $cards->pluck('cardprice_id'))
-            ->select('id', 'tcgplayer', 'cardmarket') 
-            ->get()
-            ->keyBy('id');
-    
-        //merge pricedata with card standard 
-        $cards = $cards->map(function ($card) use ($cardPrices) {
-            if (isset($cardPrices[$card->cardprice_id])) {
-                $priceData = $cardPrices[$card->cardprice_id];
-                
-                //decoding price data since it's stored in array
-                $decodedTcgplayerPrices = json_decode($priceData->tcgplayer, true);
-                $decodedCardmarketPrices = json_decode($priceData->cardmarket, true);
-    
-                $card->price_data = [
-                    'id' => $card->cardprice_id,
-                    'tcgplayer' => [
-                        'url' => $decodedTcgplayerPrices['url'] ?? null,
-                        'updatedAt' => $decodedTcgplayerPrices['updatedAt'] ?? null,
-                        'normal' => $decodedTcgplayerPrices['prices']['normal'] ?? null,
-                        'reverseHolofoil' => $decodedTcgplayerPrices['prices']['reverseHolofoil'] ?? null,
-                        'holofoil' => $decodedTcgplayerPrices['prices']['holofoil'] ?? null,
-                    ],
-                    'cardmarket' => [
-                        'url' => $decodedCardmarketPrices['url'] ?? null,
-                        'updatedAt' => $decodedCardmarketPrices['updatedAt'] ?? null,
-                        'prices' => [
-                            'averageSellPrice' => $decodedCardmarketPrices['prices']['averageSellPrice'] ?? null,
-                            'lowPrice' => $decodedCardmarketPrices['prices']['lowPrice'] ?? null,
-                            'trendPrice' => $decodedCardmarketPrices['prices']['trendPrice'] ?? null,
-                            'germanProLow' => $decodedCardmarketPrices['prices']['germanProLow'] ?? null,
-                            'suggestedPrice' => $decodedCardmarketPrices['prices']['suggestedPrice'] ?? null,
-                            'reverseHoloSell' => $decodedCardmarketPrices['prices']['reverseHoloSell'] ?? null,
-                            'reverseHoloLow' => $decodedCardmarketPrices['prices']['reverseHoloLow'] ?? null,
-                            'reverseHoloTrend' => $decodedCardmarketPrices['prices']['reverseHoloTrend'] ?? null,
-                            'lowPriceExPlus' => $decodedCardmarketPrices['prices']['lowPriceExPlus'] ?? null,
-                            'avg1' => $decodedCardmarketPrices['prices']['avg1'] ?? null,
-                            'avg7' => $decodedCardmarketPrices['prices']['avg7'] ?? null,
-                            'avg30' => $decodedCardmarketPrices['prices']['avg30'] ?? null,
-                            'reverseHoloAvg1' => $decodedCardmarketPrices['prices']['reverseHoloAvg1'] ?? null,
-                            'reverseHoloAvg7' => $decodedCardmarketPrices['prices']['reverseHoloAvg7'] ?? null,
-                            'reverseHoloAvg30' => $decodedCardmarketPrices['prices']['reverseHoloAvg30'] ?? null,
-                        ],
-                    ],
-                ];
-            }
-    
-            return $card;
-        });
-    
-        return response()->json($cards);
+        ->findOrFail($setId)
+        ->cards;
+
+    if ($cards->isEmpty()) {
+        return response()->json(['error' => 'No cards found for this set'], 404);
     }
-    //searching for a card, even by id
+
+    $cardPrices = $this->getCardPrices($cards->pluck('cardprice_id')->toArray());
+
+    $cards = $cards->map(function ($card) use ($cardPrices) {
+        if (isset($cardPrices[$card->cardprice_id])) {
+            $card->price_data = $cardPrices[$card->cardprice_id];
+        }
+
+        return $card;
+    });
+
+    return response()->json($cards);
+    }
+
+    // searching for a card 
+    //TO DO: fix showing card with number
     public function search(Request $request)
     {
         $query = $request->input('query');
     
-        //check if includes both card_id and printed_total -> identifier of card 
         if (preg_match('/(\d+)\/(\d+)/', $query, $matches)) {
             $cardIdPart = $matches[1]; 
             $printedTotal = $matches[2]; 
     
-            
             $results = Card::whereRaw('CAST(SUBSTRING_INDEX(card_id, "-", -1) AS UNSIGNED) = ?', [$cardIdPart])
                 ->whereHas('set', function ($query) use ($printedTotal) {
                     $query->where('printed_total', $printedTotal);
@@ -106,11 +64,20 @@ class CardController extends Controller
             return response()->json(['message' => 'No card found'], 404);
         }
     
+        $cardPrices = $this->getCardPrices($results->pluck('cardprice_id')->toArray());
+
+        $results = $results->map(function ($card) use ($cardPrices) {
+            if (isset($cardPrices[$card->cardprice_id])) {
+                $card->price_data = $cardPrices[$card->cardprice_id];
+            }
+    
+            return $card;
+        });
         return response()->json($results);
     }
     
 
-    //filter by set
+    // filter by set
     public function filterType(Request $request)
     {
         $type = $request->input('type');
@@ -130,10 +97,10 @@ class CardController extends Controller
         //filter by type
         $cards = $query->where('types', 'LIKE', '%' . $type . '%')->get();
         
-        // Return filtered cards
         return response()->json($cards);
     }
-    
+   
+    // ordering by evolution
     public function orderEvolutionBySets($setId) {
        
         //fetch cards from current
@@ -192,7 +159,6 @@ class CardController extends Controller
                 return $this->getEvolutionOrder($a) - $this->getEvolutionOrder($b);
             });
     
-            // Add the sorted chain to the final result
             foreach ($chain as $card) {
                 $sortedEvo[] = $card;
             }
