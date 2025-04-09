@@ -1,84 +1,91 @@
 <?php
-//importing new cards if comes out! 
-//update ptcg_code accordingly!
-//update apiUrl acoordingly!
-
-//before importing cards, make sure imported new set first!
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Card;
 use App\Models\Set;
-// use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 
 class ImportNewCards extends Command
 {
     protected $signature = 'import:new';
+    protected $description = 'Import new cards and update missing fields';
 
     public function handle()
     {
-      //corresponding set by ptcg_code
-        $set = Set::where('ptcgo_code', 'SSP')->first();
-
-        if (!$set) {
-            $this->error("Set sv8 not found in the database.");
-            return;
-        }
-
-        //fetch cards by set url
-        $apiUrl = "https://api.pokemontcg.io/v2/cards?q=set.id:sv8";
-
+        $apiUrl = "https://api.pokemontcg.io/v2/cards";
+        $this->info("Fetching data from: " . $apiUrl);
         $response = Http::withOptions(['verify' => false])->get($apiUrl);
 
         if ($response->failed()) {
-            $this->error("Failed to fetch cards for set sv8");
+            $this->error("Failed to fetch cards from API.");
             return;
         }
 
-        $cardsData = $response->json()['data'];
+        $cardsData = $response->json()['data'] ?? [];
         
-        foreach ($cardsData as $cardData) {
-            $evolvesFrom = $this->getEvolvesFrom($cardData['id'], $cardsData);
-            
-            Card::create([
-                'card_id' => $cardData['id'],
-                'name' => $cardData['name'],
-                'supertype' => $cardData['supertype'],
-                'subtypes' => $cardData['subtypes'] ?? [],
-                'hp' => $cardData['hp'] ?? null,
-                'types' => $cardData['types'] ?? [],
-                'evolves_from' => $evolvesFrom,
-                'evolvesTo' => $cardData['evolvesTo'] ?? [],
-                'attacks' => $cardData['attacks'] ?? [],
-                'weakness' => $cardData['weaknesses'] ?? [],
-                'retreat_cost' => $cardData['retreatCost'] ?? [],
-                'converted_retreat_cost' => $cardData['convertedRetreatCost'] ?? null,
-                'rarity' => $cardData['rarity'] ?? null,
-                'legalities' => $cardData['legalities'] ?? [],
-                'images' => $cardData['images'] ?? [],
-                'image_small' => $cardData['images']['small'] ?? null,
-                'image_large' => $cardData['images']['large'] ?? null,
-                'set_id' => $set->id,
-            ]);
+        if (empty($cardsData)) {
+            $this->warn("No cards found in API response.");
+            return;
         }
 
-        $this->info("Cards from sv8 set imported successfully.");
-    }
+        foreach ($cardsData as $cardData) {
+            $existingCard = Card::where('card_id', $cardData['id'])->first();
+            
+            if ($existingCard) {
+                // Update only missing fields
+                $updateData = [];
+                foreach ([
+                    'name', 'supertype', 'subtypes', 'hp', 'types', 'attacks', 'weakness',
+                    'retreat_cost', 'converted_retreat_cost', 'rarity', 'legalities', 'images', 'image_small', 'image_large'
+                ] as $field) {
+                    if (empty($existingCard->$field) && isset($cardData[$field])) {
+                        $updateData[$field] = $cardData[$field];
+                    }
+                }
 
-    /**
-     * function to calculate the evolves_from value based on the evolvesTo field.
-     * @param string $cardId
-     * @param array $cardsData
-     * @return string|null
-     */
-    private function getEvolvesFrom($cardId, $cardsData)
-    {
-        foreach ($cardsData as $card) {
-            if (isset($card['evolvesTo']) && in_array($cardId, $card['evolvesTo'])) {
-                return $card['id'];
+                // Handle evolves_to correctly
+                if (empty($existingCard->evolves_to) && isset($cardData['evolvesTo'])) {
+                    $evolvesToIds = [];
+                    foreach ($cardData['evolvesTo'] as $evolvesToId) {
+                        $nextEvolution = Card::where('card_id', $evolvesToId)->first();
+                        if ($nextEvolution) {
+                            $evolvesToIds[] = $nextEvolution->card_id;
+                        }
+                    }
+                    if (!empty($evolvesToIds)) {
+                        $updateData['evolves_to'] = json_encode($evolvesToIds);
+                    }
+                }
+
+                if (!empty($updateData)) {
+                    $existingCard->update($updateData);
+                    $this->info("Updated missing fields for card: " . $cardData['name']);
+                }
+            } else {
+                // Insert new card if it doesn't exist
+                $set = Set::where('set_id', explode('-', $cardData['id'])[0])->first();
+                Card::create([
+                    'card_id' => $cardData['id'],
+                    'name' => $cardData['name'],
+                    'supertype' => $cardData['supertype'],
+                    'subtypes' => $cardData['subtypes'] ?? [],
+                    'hp' => $cardData['hp'] ?? null,
+                    'types' => $cardData['types'] ?? [],
+                    'evolves_to' => json_encode($cardData['evolvesTo'] ?? []),
+                    'attacks' => $cardData['attacks'] ?? [],
+                    'weakness' => $cardData['weaknesses'] ?? [],
+                    'retreat_cost' => $cardData['retreatCost'] ?? [],
+                    'converted_retreat_cost' => $cardData['convertedRetreatCost'] ?? null,
+                    'rarity' => $cardData['rarity'] ?? null,
+                    'legalities' => $cardData['legalities'] ?? [],
+                    'images' => $cardData['images'] ?? [],
+                    'image_small' => $cardData['images']['small'] ?? null,
+                    'image_large' => $cardData['images']['large'] ?? null,
+                    'set_id' => $set ? $set->id : null,
+                ]);
+                $this->info("Imported new card: " . $cardData['name']);
             }
         }
-        return null;
     }
 }

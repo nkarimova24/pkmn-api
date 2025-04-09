@@ -21,7 +21,7 @@ class ImportNewSets extends Command
     public function handle()
     {
         try {
-            $apiUrl = "https://api.pokemontcg.io/v2/sets/sv8";
+            $apiUrl = "https://api.pokemontcg.io/v2/sets/sv8pt5";
             $response = Http::withOptions(['verify' => false])->get($apiUrl);
 
             if ($response->failed()) {
@@ -47,7 +47,7 @@ class ImportNewSets extends Command
                 'series_id' => $series->id,
             ]);
 
-            $this->info('Set sv8 (Paradox Rift) imported successfully!');
+            $this->info('Set  imported successfully!');
 
         } catch (\Exception $e) {
             $this->error('Error importing set: ' . $e->getMessage());

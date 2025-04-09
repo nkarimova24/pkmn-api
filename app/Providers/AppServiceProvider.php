@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Schedule;
+use App\Console\Commands\CheckNewSet;
+use App\Console\Commands\CheckNewCards;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Schedule::command('check:newsets')->daily();
+        Schedule::command('check:newcards')->daily();
+    
     }
 }
