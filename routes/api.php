@@ -17,28 +17,3 @@ Route::post('/register', [App\Http\Controllers\API\AuthController::class, 'regis
 //login
 Route::post('login', [AuthController::class, 'login']);
 
-//series and their sets in one :)
-Route::get('/series', [SeriesController::class, 'index']);
-
-//card to according set
-Route::get('/sets/{setId}/cards', [CardController::class, 'cardsFromSet']);
-Route::get('/card-prices/{cardId}', [CardController::class, 'getCardPrices']);
-//searching for specific card
-Route::get('/search', [CardController::class, 'search']);
-
-//types && subtypes
-Route::get('/cards/filter', [CardController::class, 'filterType']);
-//
-Route::get('/subtypes/{setId}', [CardController::class, 'subTypes']);
-
-//evolutionchains per set
-Route::get('/cards/set/{setId}/sorted', [CardController::class, 'orderEvolutionBySets']);
-
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::get('/user', [AuthController::class, 'user']);
-    // Route::post('/logout', [LoginController::class, 'logout']);
-
-    Route::get('/collections', [CollectionController::class, 'getUserCollection']); // Accepts email in the request
-    Route::post('/collections/add', [CollectionController::class, 'addCardToCollection'])->name('addCardToCollection');
-    Route::delete('/collections/remove', [CollectionController::class, 'removeCardFromCollection']);
-});
